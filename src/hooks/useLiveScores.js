@@ -24,7 +24,7 @@ const rid=(tla,name)=>TLA[tla?.toUpperCase()]??NAME[name]??null;
 const fdSt=s=>['IN_PLAY','PAUSED','SUSPENDED'].includes(s)?'LIVE':['FINISHED','AWARDED'].includes(s)?'FT':'UPCOMING';
 
 // Always use our own server-side proxy — API key never exposed to client
-const ENDPOINT = '/.netlify/functions/scores';
+const ENDPOINT = '/api/scores.js';
 
 export function useLiveScores() {
   const { setMatchResult } = useStore();
