@@ -1,8 +1,19 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/scores.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/scores",
-      "destination": "/api/scores.js"
+      "destination": "api/scores.js"
     },
     {
       "source": "/(.*)",
