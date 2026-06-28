@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MATCHES } from '../data/matches.js';
+import { ALL_MATCHES } from '../data/matches.js';
 import useStore from '../store/useStore.js';
 
 const TLA={MEX:'mex',KOR:'kor',RSA:'rsa',CZE:'cze',CAN:'can',BIH:'bih',QAT:'qat',SUI:'sui',
@@ -45,7 +45,7 @@ export function useLiveScores() {
         const hId = rid(m.homeTeam?.tla, m.homeTeam?.name);
         const aId = rid(m.awayTeam?.tla, m.awayTeam?.name);
         if (!hId || !aId) continue;
-        const our = MATCHES.find(x => x.home===hId && x.away===aId);
+        const our = ALL_MATCHES.find(x => x.home===hId && x.away===aId);
         if (!our) continue;
         const st  = fdSt(m.status);
         const hs  = m.score?.fullTime?.home  ?? m.score?.halfTime?.home  ?? null;
