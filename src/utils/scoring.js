@@ -1,4 +1,4 @@
-import { MATCHES } from '../data/matches.js';
+import { MATCHES, ALL_MATCHES } from '../data/matches.js';
 import { TEAMS } from '../data/teams.js';
 
 export function calcPoints(ph, pa, ah, aa) {
@@ -11,7 +11,7 @@ export function calcPoints(ph, pa, ah, aa) {
 
 export function totalPoints(predictions, completedResults = {}) {
   let pts = 0;
-  MATCHES.forEach(m => {
+  ALL_MATCHES.forEach(m => {
     const res = completedResults[m.id];
     if (!res || res.status !== 'FT') return;
     const p = predictions[m.id];
@@ -22,7 +22,7 @@ export function totalPoints(predictions, completedResults = {}) {
 }
 
 export function pointsBreakdown(predictions, completedResults = {}) {
-  return MATCHES
+  return ALL_MATCHES
     .filter(m => completedResults[m.id]?.status === 'FT' && predictions[m.id])
     .map(m => {
       const p   = predictions[m.id];
@@ -37,7 +37,7 @@ export function predictionCount(predictions) {
 }
 
 export function accuracy(predictions, completedResults = {}) {
-  const done = MATCHES.filter(m => completedResults[m.id]?.status === 'FT' && predictions[m.id]);
+  const done = ALL_MATCHES.filter(m => completedResults[m.id]?.status === 'FT' && predictions[m.id]);
   if (!done.length) return 0;
   const correct = done.filter(m => {
     const p = predictions[m.id];
