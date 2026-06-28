@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ALL_MATCHES } from '../data/matches.js';
+import { isCertainlyOver } from '../utils/matchTime.js';
 import useStore from '../store/useStore.js';
 
 const TLA={MEX:'mex',KOR:'kor',RSA:'rsa',CZE:'cze',CAN:'can',BIH:'bih',QAT:'qat',SUI:'sui',
@@ -51,7 +52,11 @@ export function useLiveScores() {
         const hs  = m.score?.fullTime?.home  ?? m.score?.halfTime?.home  ?? null;
         const as_ = m.score?.fullTime?.away  ?? m.score?.halfTime?.away  ?? null;
         upd[our.id] = { status: st, homeScore: hs, awayScore: as_, minute: m.minute ?? null };
-        if (st === 'FT' && hs !== null) setMatchResult(our.id, hs, as_);
+        // Free-tier score updates can arrive late. Whenever we see a FINISHED/AWARDED
+        // result with a real score, cache it — regardless of whether we "caught" the
+        // live transition. This is the ONLY way results get permanently recorded, so
+        // it must fire on every poll that includes the match, not just the first one.
+        if (st === 'FT' && hs !== null && as_ !== null) setMatchResult(our.id, hs, as_);
       }
       setLiveData(upd);
       setLastFetch(new Date());
@@ -68,10 +73,18 @@ export function useLiveScores() {
   }, [fetch_]);
 
   const resolveMatch = useCallback((match) => {
-    const api    = liveData[match.id];
+    const api = liveData[match.id];
     if (api) return { ...match, ...api };
     const cached = useStore.getState().completedResults[match.id];
     if (cached) return { ...match, ...cached };
+    // Safety net: if kickoff was long enough ago that the match must have
+    // ended, but neither the live API nor our cache has confirmed a result
+    // (e.g. a delayed/missed free-tier status update), don't keep showing
+    // it as "UPCOMING" — that's actively wrong and leaves it open for
+    // prediction/editing on a game that's already been played.
+    if (match.home && match.away && isCertainlyOver(match.date, match.time)) {
+      return { ...match, status: 'FT' };
+    }
     return match;
   }, [liveData]);
 
