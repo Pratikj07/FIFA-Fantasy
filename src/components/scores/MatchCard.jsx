@@ -55,7 +55,8 @@ export default function MatchCard({ match, compact = false, onClick, showPredict
   const isKnockout = match.stage && match.stage !== 'GROUP';
   const status = match.status ?? 'UPCOMING';
   const isLive = status === 'LIVE';
-  const hasSc  = status === 'FT' || isLive;
+  const hasSc  = (status === 'FT' || isLive) && match.homeScore != null && match.awayScore != null;
+  const isFTPending = status === 'FT' && !hasSc; // certainly over, but score not synced yet
 
   // Meta chip: group/matchday for group stage, stage round name for knockout
   const metaLabel = isKnockout
@@ -90,6 +91,11 @@ export default function MatchCard({ match, compact = false, onClick, showPredict
               <span className={`score-font text-white ${compact ? 'text-3xl' : 'text-5xl'}`}>{match.homeScore}</span>
               <span className="text-white/20 font-display text-xl">–</span>
               <span className={`score-font text-white ${compact ? 'text-3xl' : 'text-5xl'}`}>{match.awayScore}</span>
+            </div>
+          ) : isFTPending ? (
+            <div className="text-center">
+              <p className="font-display text-white/20 text-lg">FT</p>
+              <p className="text-[9px] text-white/25">syncing…</p>
             </div>
           ) : (
             <div className="text-center">
