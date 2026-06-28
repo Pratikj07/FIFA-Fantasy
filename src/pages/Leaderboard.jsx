@@ -5,13 +5,13 @@ import useStore from '../store/useStore.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { calcPoints, pointsBreakdown } from '../utils/scoring.js';
-import { MATCHES } from '../data/matches.js';
+import { ALL_MATCHES } from '../data/matches.js';
 import { TEAMS } from '../data/teams.js';
 import LeaderboardTable from '../components/leaderboard/LeaderboardTable.jsx';
 
 function computePoints(preds, completedResults) {
   let pts = 0;
-  MATCHES.forEach(m => {
+  ALL_MATCHES.forEach(m => {
     const res = completedResults[m.id];
     if (!res || res.status !== 'FT') return;
     const p = preds[m.id];
@@ -60,7 +60,7 @@ export default function Leaderboard() {
             predCount: Object.keys(byUser[p.id] || {}).length,
             acc: (() => {
               const up = byUser[p.id] || {};
-              const done = MATCHES.filter(m => completedResults[m.id]?.status === 'FT' && up[m.id]);
+              const done = ALL_MATCHES.filter(m => completedResults[m.id]?.status === 'FT' && up[m.id]);
               if (!done.length) return 0;
               const correct = done.filter(m => calcPoints(up[m.id].h, up[m.id].a, completedResults[m.id].homeScore, completedResults[m.id].awayScore).type !== 'wrong').length;
               return Math.round((correct / done.length) * 100);
