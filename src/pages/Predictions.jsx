@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Lock, Filter, ChevronDown, Calendar } from 'lucide-react';
 import useStore from '../store/useStore.js';
-import { MATCHES } from '../data/matches.js';
+import { MATCHES, KNOCKOUT_MATCHES } from '../data/matches.js';
 import { GROUP_NAMES } from '../data/teams.js';
 import { predictionCount } from '../utils/scoring.js';
 import { useLiveScoresContext } from '../context/LiveScoresContext.jsx';
@@ -10,12 +10,18 @@ import { isMatchLocalToday, matchSortKey } from '../utils/matchTime.js';
 import PredictCard from '../components/predictions/PredictCard.jsx';
 import AIAnalysis from '../components/predictions/AIAnalysis.jsx';
 
-// All matches sorted chronologically (ET → UTC, timezone-correct)
-const SORTED = [...MATCHES].sort((a, b) => matchSortKey(a.date, a.time) - matchSortKey(b.date, b.time));
+// Knockout matches only become predictable once both teams are confirmed (home/away non-null).
+// R16 onward stay TBD until earlier rounds resolve, so they're excluded here until then.
+const PREDICTABLE_KNOCKOUT = KNOCKOUT_MATCHES.filter(m => m.home && m.away);
 
-// Group by matchday
-const BY_MD = SORTED.reduce((acc, m) => { (acc[m.matchday] ??= []).push(m); return acc; }, {});
+// All matches sorted chronologically (ET → UTC, timezone-correct)
+const SORTED = [...MATCHES, ...PREDICTABLE_KNOCKOUT].sort((a, b) => matchSortKey(a.date, a.time) - matchSortKey(b.date, b.time));
+
+// Group by matchday (group stage only); knockout matches get their own bucket by stage
+const BY_MD = SORTED.filter(m => m.matchday).reduce((acc, m) => { (acc[m.matchday] ??= []).push(m); return acc; }, {});
+const KO_MATCHES = SORTED.filter(m => !m.matchday); // confirmed-team knockout fixtures
 const MD_DATES = { 1:'Jun 11 – Jun 17', 2:'Jun 18 – Jun 22', 3:'Jun 24 – Jun 27' };
+const STAGE_LABEL = { R32:'Round of 32', R16:'Round of 16', QF:'Quarter-Final', SF:'Semi-Final', '3RD':'3rd Place Playoff', FINAL:'Final' };
 
 export default function Predictions() {
   const { predictions } = useStore();
@@ -28,7 +34,7 @@ export default function Predictions() {
 
   const todayLabel = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric' });
 
-  const gOk = (m) => group === 'ALL' || m.group === group;
+  const gOk = (m) => group === 'ALL' || m.group === group; // knockout (group:null) only shows under 'ALL'
 
   const filterMatch = (m) => {
     const resolved = resolveMatch(m);
@@ -142,7 +148,7 @@ export default function Predictions() {
           )
         )}
 
-        {/* Other tabs — Matchday sections */}
+        {/* Other tabs — Matchday sections + Knockout section */}
         {tab !== 'TODAY' && (
           visibleTotal === 0 ? (
             <div className="text-center py-16 text-white/30">
@@ -153,29 +159,55 @@ export default function Predictions() {
               </p>
             </div>
           ) : (
-            [1, 2, 3].map(md => {
-              const mdMatches = (BY_MD[md] || []).filter(filterMatch);
-              if (!mdMatches.length) return null;
-              return (
-                <div key={md} className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="font-display text-lg text-wc-gold tracking-wider">Matchday {md}</span>
-                    <span className="text-white/25 text-[10px]">{MD_DATES[md]}</span>
-                    <div className="flex-1 h-px bg-white/5"/>
-                    <span className="text-white/20 text-[10px]">{mdMatches.length} matches</span>
+            <>
+              {[1, 2, 3].map(md => {
+                const mdMatches = (BY_MD[md] || []).filter(filterMatch);
+                if (!mdMatches.length) return null;
+                return (
+                  <div key={md} className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="font-display text-lg text-wc-gold tracking-wider">Matchday {md}</span>
+                      <span className="text-white/25 text-[10px]">{MD_DATES[md]}</span>
+                      <div className="flex-1 h-px bg-white/5"/>
+                      <span className="text-white/20 text-[10px]">{mdMatches.length} matches</span>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <AnimatePresence mode="popLayout">
+                        {mdMatches.map((m, i) => (
+                          <motion.div key={m.id} layout initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:i*0.02}}>
+                            <PredictCard match={m} onAIClick={setAiMatch}/>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <AnimatePresence mode="popLayout">
-                      {mdMatches.map((m, i) => (
-                        <motion.div key={m.id} layout initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:i*0.02}}>
-                          <PredictCard match={m} onAIClick={setAiMatch}/>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                );
+              })}
+
+              {/* Knockout stage — only matches with confirmed teams are predictable */}
+              {(() => {
+                const koMatches = KO_MATCHES.filter(filterMatch);
+                if (!koMatches.length) return null;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="font-display text-lg text-wc-blue tracking-wider">🏆 Knockout Stage</span>
+                      <div className="flex-1 h-px bg-white/5"/>
+                      <span className="text-white/20 text-[10px]">{koMatches.length} matches</span>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <AnimatePresence mode="popLayout">
+                        {koMatches.map((m, i) => (
+                          <motion.div key={m.id} layout initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:i*0.02}}>
+                            <PredictCard match={m} onAIClick={setAiMatch}/>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })()}
+            </>
           )
         )}
 
