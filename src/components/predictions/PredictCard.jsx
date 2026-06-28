@@ -43,7 +43,8 @@ export default function PredictCard({ match, onAIClick }) {
   if (!ht || !at) return null;
 
   const isFT        = resolved.status === 'FT';
-  const scoreResult = isFT && saved ? calcPoints(saved.h, saved.a, resolved.homeScore, resolved.awayScore) : null;
+  const hasScore     = resolved.homeScore != null && resolved.awayScore != null;
+  const scoreResult = isFT && hasScore && saved ? calcPoints(saved.h, saved.a, resolved.homeScore, resolved.awayScore) : null;
   const hasChanged  = saved && (ph !== saved.h || pa !== saved.a);
   const isUpdate    = !!saved && !matchStarted;
 
@@ -127,11 +128,15 @@ export default function PredictCard({ match, onAIClick }) {
       {/* Final result */}
       {isFT && (
         <div className="mb-3 py-2 bg-white/4 rounded-xl text-center">
-          <div className="flex items-center justify-center gap-2 text-sm">
-            <Flag iso2={ht.iso2} size="sm"/>
-            <span className="text-wc-live font-bold">{resolved.homeScore} – {resolved.awayScore}</span>
-            <Flag iso2={at.iso2} size="sm"/>
-          </div>
+          {hasScore ? (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Flag iso2={ht.iso2} size="sm"/>
+              <span className="text-wc-live font-bold">{resolved.homeScore} – {resolved.awayScore}</span>
+              <Flag iso2={at.iso2} size="sm"/>
+            </div>
+          ) : (
+            <p className="text-white/30 text-xs">Match finished — final score syncing…</p>
+          )}
           {scoreResult && <p className="text-[11px] mt-1" style={{color:scoreResult.color}}>{scoreResult.label}</p>}
         </div>
       )}
