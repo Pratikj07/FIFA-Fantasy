@@ -7,6 +7,8 @@ import { useLiveScoresContext } from '../../context/LiveScoresContext.jsx';
 import useStore from '../../store/useStore.js';
 import Flag from '../ui/Flag.jsx';
 
+const STAGE_LABEL = { R32:'Round of 32', R16:'Round of 16', QF:'Quarter-Final', SF:'Semi-Final', '3RD':'3rd Place Playoff', FINAL:'Final' };
+
 const Spinner = ({ value, onPlus, onMinus, disabled }) => (
   <div className="flex flex-col items-center gap-1">
     <button onClick={onPlus} disabled={disabled}
@@ -72,7 +74,7 @@ export default function PredictCard({ match, onAIClick }) {
       {/* Status chips */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-[10px] bg-wc-gold/10 text-wc-gold border border-wc-gold/20 rounded px-1.5 py-0.5 font-semibold">
-          Group {match.group} · MD{match.matchday}
+          {match.stage && match.stage !== 'GROUP' ? STAGE_LABEL[match.stage] || match.stage : `Group ${match.group} · MD${match.matchday}`}
         </span>
         {matchStarted && (
           <span className="flex items-center gap-1 text-[10px] text-white/30 bg-white/5 rounded px-1.5 py-0.5">
