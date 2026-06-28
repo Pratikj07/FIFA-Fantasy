@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
 import useStore from '../store/useStore.js';
-import { MATCHES } from '../data/matches.js';
+import { ALL_MATCHES } from '../data/matches.js';
 import { GROUP_NAMES } from '../data/teams.js';
 import { useLiveScoresContext } from '../context/LiveScoresContext.jsx';
 import { isMatchLocalToday, matchSortKey } from '../utils/matchTime.js';
@@ -10,7 +10,7 @@ import MatchCard from '../components/scores/MatchCard.jsx';
 import GroupStandings from '../components/scores/GroupStandings.jsx';
 
 // Sort all matches chronologically once
-const SORTED = [...MATCHES].sort((a, b) => matchSortKey(a.date, a.time) - matchSortKey(b.date, b.time));
+const SORTED = [...ALL_MATCHES].sort((a, b) => matchSortKey(a.date, a.time) - matchSortKey(b.date, b.time));
 
 // Group sorted matches by date string for the ALL tab
 const groupByDate = (matches) => {
@@ -24,11 +24,13 @@ export default function LiveScores() {
   const { loading, error, lastFetch, refetch, resolveMatch } = useLiveScoresContext();
   const [tab,   setTab]   = useState('TODAY');
   const [group, setGroup] = useState('ALL');
+  const [stage, setStage] = useState('ALL');
 
   const allResolved = SORTED.map(m => resolveMatch(m));
   const liveCount   = allResolved.filter(m => m.status === 'LIVE').length;
 
-  const gFilter = (m) => group === 'ALL' || m.group === group;
+  const sFilter = (m) => stage === 'ALL' || (m.stage ?? 'GROUP') === stage;
+  const gFilter = (m) => sFilter(m) && (group === 'ALL' || m.group === group);
 
   // TODAY: matches whose ET kickoff lands on today in the USER's local timezone
   // Always include LIVE matches regardless of date (so Indian users never miss a live game)
@@ -102,15 +104,31 @@ export default function LiveScores() {
         ))}
       </div>
 
-      {/* Group filter */}
+      {/* Stage filter */}
       <div className="flex gap-1.5 flex-wrap">
-        {['ALL', ...GROUP_NAMES].map(g => (
-          <button key={g} onClick={() => setGroup(g)}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${group===g?'tab-active':'tab-inactive'}`}>
-            {g === 'ALL' ? 'All Groups' : `Group ${g}`}
+        {[
+          ['ALL','All Stages'],['GROUP','Group Stage'],['R32','Round of 32'],
+          ['R16','Round of 16'],['QF','Quarter-Finals'],['SF','Semi-Finals'],
+          ['3RD','3rd Place'],['FINAL','Final'],
+        ].map(([s, label]) => (
+          <button key={s} onClick={() => { setStage(s); if (s !== 'GROUP' && s !== 'ALL') setGroup('ALL'); }}
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${stage===s?'tab-active':'tab-inactive'}`}>
+            {label}
           </button>
         ))}
       </div>
+
+      {/* Group filter — only relevant for group stage */}
+      {(stage === 'ALL' || stage === 'GROUP') && (
+        <div className="flex gap-1.5 flex-wrap">
+          {['ALL', ...GROUP_NAMES].map(g => (
+            <button key={g} onClick={() => setGroup(g)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${group===g?'tab-active':'tab-inactive'}`}>
+              {g === 'ALL' ? 'All Groups' : `Group ${g}`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ALL tab — grouped by date, chronological */}
       {tab === 'ALL' ? (
@@ -151,7 +169,7 @@ export default function LiveScores() {
               </motion.div>
             ))}
           </div>
-          {group !== 'ALL' && <GroupStandings group={group}/>}
+          {group !== 'ALL' && (stage === 'ALL' || stage === 'GROUP') && <GroupStandings group={group}/>}
         </>
       )}
     </div>
