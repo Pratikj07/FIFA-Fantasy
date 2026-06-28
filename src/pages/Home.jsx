@@ -1,79 +1,179 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { ALL_MATCHES } from '../data/matches.js';
+import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Activity, Target, Trophy, ArrowRight } from 'lucide-react';
 import useStore from '../store/useStore.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { supabase } from '../lib/supabase.js';
+import { ALL_MATCHES } from '../data/matches.js';
+import { useLiveScoresContext } from '../context/LiveScoresContext.jsx';
+import { totalPoints, predictionCount, accuracy } from "../utils/scoring.js";
+import { matchSortKey } from "../utils/matchTime.js";
+import MatchCard from '../components/scores/MatchCard.jsx';
 
-const TLA={MEX:'mex',KOR:'kor',RSA:'rsa',CZE:'cze',CAN:'can',BIH:'bih',QAT:'qat',SUI:'sui',
-  BRA:'bra',MAR:'mar',SCO:'sco',HAI:'hai',USA:'usa',PAR:'par',AUS:'aus',TUR:'tur',
-  GER:'ger',ECU:'ecu',CIV:'civ',CUW:'cuw',NED:'ned',JPN:'jpn',TUN:'tun',SWE:'swe',
-  BEL:'bel',IRN:'irn',EGY:'egy',NZL:'nzl',ESP:'esp',URU:'ury',KSA:'ksa',CPV:'cpv',
-  FRA:'fra',SEN:'sen',NOR:'nor',IRQ:'irq',ARG:'arg',AUT:'aut',ALG:'alg',JOR:'jor',
-  POR:'por',COL:'col',UZB:'uzb',COD:'cod',ENG:'eng',CRO:'cro',PAN:'pan',GHA:'gha'};
-const NAME={'Mexico':'mex','South Korea':'kor','Korea Republic':'kor','South Africa':'rsa',
-  'Czechia':'cze','Czech Republic':'cze','Canada':'can','Bosnia and Herzegovina':'bih',
-  'Qatar':'qat','Switzerland':'sui','Brazil':'bra','Morocco':'mar','Scotland':'sco',
-  'Haiti':'hai','United States':'usa','USA':'usa','Paraguay':'par','Australia':'aus',
-  'Turkey':'tur','Türkiye':'tur','Germany':'ger','Ecuador':'ecu','Ivory Coast':'civ',
-  "Côte d'Ivoire":'civ','Curaçao':'cuw','Netherlands':'ned','Japan':'jpn','Tunisia':'tun',
-  'Sweden':'swe','Belgium':'bel','Iran':'irn','Egypt':'egy','New Zealand':'nzl','Spain':'esp',
-  'Uruguay':'ury','Saudi Arabia':'ksa','Cape Verde':'cpv','France':'fra','Senegal':'sen',
-  'Norway':'nor','Iraq':'irq','Argentina':'arg','Austria':'aut','Algeria':'alg','Jordan':'jor',
-  'Portugal':'por','Colombia':'col','Uzbekistan':'uzb','DR Congo':'cod',
-  'Democratic Republic of Congo':'cod','England':'eng','Croatia':'cro','Panama':'pan','Ghana':'gha'};
+const StatBox = ({ icon: Icon, label, value, sub, color = 'text-wc-gold', delay = 0 }) => (
+  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
+    className="glass-card p-4 flex flex-col gap-1">
+    <div className="flex items-center gap-2 text-white/40 text-xs mb-1"><Icon size={12}/>{label}</div>
+    <span className={`font-display text-4xl ${color}`}>{value}</span>
+    {sub && <span className="text-white/30 text-[10px]">{sub}</span>}
+  </motion.div>
+);
 
-const rid=(tla,name)=>TLA[tla?.toUpperCase()]??NAME[name]??null;
-const fdSt=s=>['IN_PLAY','PAUSED','SUSPENDED'].includes(s)?'LIVE':['FINISHED','AWARDED'].includes(s)?'FT':'UPCOMING';
+export default function Home() {
+  const { user } = useAuth();
+  const { predictions, completedResults } = useStore();
+  const { resolveMatch } = useLiveScoresContext();
 
-// Always use our own server-side proxy — API key never exposed to client
-const ENDPOINT = '/api/scores';
+  // Resolve all matches and sort chronologically
+  const allResolved = ALL_MATCHES.map(m => resolveMatch(m));
+  const sortedResolved = [...allResolved].sort(
+    (a, b) => matchSortKey(a.date, a.time) - matchSortKey(b.date, b.time)
+  );
 
-export function useLiveScores() {
-  const { setMatchResult } = useStore();
-  const [liveData,  setLiveData]  = useState({});
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState(null);
-  const [lastFetch, setLastFetch] = useState(null);
-  const timer = useRef(null);
+  const liveMatches = sortedResolved.filter(m => m.status === 'LIVE');
+  const ftMatches   = sortedResolved.filter(m => m.status === 'FT').slice(-3);
+  // Next match in SCHEDULE ORDER that hasn't been predicted yet (must have confirmed teams)
+  const nextMatch   = sortedResolved.find(m => m.status === 'UPCOMING' && m.home && m.away && !predictions[m.id]);
 
-  const fetch_ = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const res  = await fetch(ENDPOINT);
-      if (!res.ok) throw new Error(`Scores service error ${res.status}`);
-      const data = await res.json();
-      const upd  = {};
-      for (const m of (data.matches ?? [])) {
-        const hId = rid(m.homeTeam?.tla, m.homeTeam?.name);
-        const aId = rid(m.awayTeam?.tla, m.awayTeam?.name);
-        if (!hId || !aId) continue;
-        const our = ALL_MATCHES.find(x => x.home===hId && x.away===aId);
-        if (!our) continue;
-        const st  = fdSt(m.status);
-        const hs  = m.score?.fullTime?.home  ?? m.score?.halfTime?.home  ?? null;
-        const as_ = m.score?.fullTime?.away  ?? m.score?.halfTime?.away  ?? null;
-        upd[our.id] = { status: st, homeScore: hs, awayScore: as_, minute: m.minute ?? null };
-        if (st === 'FT' && hs !== null) setMatchResult(our.id, hs, as_);
-      }
-      setLiveData(upd);
-      setLastFetch(new Date());
-    } catch (e) { setError(e.message); }
-    finally    { setLoading(false); }
-  }, [setMatchResult]);
+  const myPts     = totalPoints(predictions, completedResults);
+  const predCount = predictionCount(predictions);
+  const acc       = accuracy(predictions, completedResults);
+
+  // Real rank from Supabase
+  const [rankData, setRankData] = useState({ rank: '—', total: '—', loaded: false });
 
   useEffect(() => {
-    if (timer.current) clearInterval(timer.current);
-    fetch_();
-    const hasLive = Object.values(liveData).some(d => d.status === 'LIVE');
-    timer.current = setInterval(fetch_, hasLive ? 30_000 : 90_000);
-    return () => clearInterval(timer.current);
-  }, [fetch_]);
+    if (!user) return;
+    const fetchRank = async () => {
+      if (!supabase) { setRankData({ rank: 1, total: 1, loaded: true }); return; }
+      try {
+        const [{ data: allPreds }, { count: totalUsers }] = await Promise.all([
+          supabase.from('predictions').select('user_id, match_id, home_score, away_score'),
+          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        ]);
+        if (!allPreds || totalUsers == null) { setRankData({ rank: 1, total: 1, loaded: true }); return; }
+        const byUser = {};
+        allPreds.forEach(p => {
+          if (!byUser[p.user_id]) byUser[p.user_id] = {};
+          byUser[p.user_id][p.match_id] = { h: p.home_score, a: p.away_score };
+        });
+        const usersAhead = Object.entries(byUser)
+          .filter(([uid]) => uid !== user.id)
+          .filter(([, preds]) => totalPoints(preds, completedResults) > myPts)
+          .length;
+        setRankData({ rank: usersAhead + 1, total: totalUsers, loaded: true });
+      } catch { setRankData({ rank: 1, total: 1, loaded: true }); }
+    };
+    fetchRank();
+  }, [user?.id, myPts]);
 
-  const resolveMatch = useCallback((match) => {
-    const api    = liveData[match.id];
-    if (api) return { ...match, ...api };
-    const cached = useStore.getState().completedResults[match.id];
-    if (cached) return { ...match, ...cached };
-    return match;
-  }, [liveData]);
+  const rankDisplay = rankData.loaded ? `#${rankData.rank}` : '…';
+  const rankSub     = rankData.loaded ? `of ${rankData.total} players` : 'loading…';
 
-  return { liveData, loading, error, lastFetch, refetch: fetch_, resolveMatch };
+  return (
+    <div className="space-y-8">
+      {/* Hero */}
+      <motion.div initial={{ opacity:0, scale:0.97 }} animate={{ opacity:1, scale:1 }}
+        className="relative rounded-3xl overflow-hidden p-8"
+        style={{ background:'linear-gradient(135deg,#0A1628,#071020,#0A1628)', border:'1px solid rgba(245,197,24,0.2)', boxShadow:'0 0 60px rgba(245,197,24,0.08)' }}>
+        <div className="absolute -right-20 -top-20 w-64 h-64 rounded-full pointer-events-none"
+          style={{ background:'radial-gradient(circle,rgba(245,197,24,0.08),transparent 70%)' }}/>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-4xl">🏆</span>
+            <div>
+              <p className="text-white/40 text-xs tracking-[0.3em] uppercase">FIFA World Cup</p>
+              <h1 className="font-display text-5xl text-wc-gold tracking-widest leading-none">2026</h1>
+            </div>
+          </div>
+          <p className="text-white/50 text-sm mt-1">Mexico · Canada · United States</p>
+          <p className="text-white/30 text-xs mt-0.5">June 11 – July 19, 2026 · 48 Teams · 104 Matches</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {liveMatches.length > 0 && (
+              <span className="text-xs px-3 py-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 flex items-center gap-1.5">
+                <span className="live-dot"/> {liveMatches.length} match{liveMatches.length > 1 ? 'es' : ''} live now
+              </span>
+            )}
+            {predCount > 0 && (
+              <span className="text-xs px-3 py-1.5 rounded-full bg-wc-gold/10 border border-wc-gold/25 text-wc-gold">
+                {predCount} predictions locked in
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Stats */}
+      <div>
+        <h2 className="text-white/40 text-xs uppercase tracking-widest font-semibold mb-3">Your Performance</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatBox icon={Trophy}   label="Total Points" value={myPts}       color="text-wc-gold"  delay={0.00}/>
+          <StatBox icon={Activity} label="Global Rank"  value={rankDisplay} color="text-wc-blue"  delay={0.05} sub={rankSub}/>
+          <StatBox icon={Target}   label="Predictions"  value={predCount}   color="text-white"    delay={0.10}/>
+          <StatBox icon={Activity} label="Accuracy"     value={`${acc}%`}   color="text-wc-live"  delay={0.15}/>
+        </div>
+      </div>
+
+      {/* Live now */}
+      {liveMatches.length > 0 && (
+        <div>
+          <h2 className="text-white/40 text-xs uppercase tracking-widest font-semibold mb-3 flex items-center gap-2">
+            <span className="live-dot"/> Live Right Now
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {liveMatches.map(m => (
+              <Link key={m.id} to="/scores"><MatchCard match={m} showPrediction={predictions[m.id]}/></Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Next unpredicted match — in schedule order */}
+      {nextMatch && (
+        <div>
+          <h2 className="text-white/40 text-xs uppercase tracking-widest font-semibold mb-3">Next to Predict</h2>
+          <Link to="/predictions"><MatchCard match={nextMatch} compact/></Link>
+          <Link to="/predictions"
+            className="mt-2 flex items-center justify-center gap-2 text-wc-gold text-sm font-medium py-3 rounded-xl border border-wc-gold/20 bg-wc-gold/5 hover:bg-wc-gold/10 transition-colors">
+            See all predictions <ArrowRight size={14}/>
+          </Link>
+        </div>
+      )}
+
+      {/* Recent results */}
+      {ftMatches.length > 0 && (
+        <div>
+          <h2 className="text-white/40 text-xs uppercase tracking-widest font-semibold mb-3">Recent Results</h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {ftMatches.map(m => <MatchCard key={m.id} match={m} compact showPrediction={predictions[m.id]}/>)}
+          </div>
+          <Link to="/scores"
+            className="mt-3 flex items-center justify-center gap-2 text-white/40 text-xs py-2 hover:text-white/70 transition-colors">
+            View all results <ArrowRight size={12}/>
+          </Link>
+        </div>
+      )}
+
+      {/* Points guide */}
+      <div className="glass-card p-5">
+        <h2 className="text-white/40 text-xs uppercase tracking-widest font-semibold mb-4">How Points Work</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {pts:5,label:'🎯 Exact Score',   sub:'Both goals exactly right'},
+            {pts:3,label:'✅ Correct Diff',  sub:'Same margin, right result'},
+            {pts:2,label:'✓ Correct Result', sub:'Win / Draw / Loss correct'},
+            {pts:0,label:'❌ Wrong Result',  sub:'Better luck next match'},
+          ].map(({pts,label,sub}) => (
+            <div key={pts} className="bg-white/3 rounded-xl p-3">
+              <span className="font-display text-2xl text-wc-gold">{pts}</span>
+              <span className="text-white/30 text-[10px] ml-1">pts</span>
+              <p className="text-white text-xs font-medium mt-0.5">{label}</p>
+              <p className="text-white/30 text-[10px] mt-0.5">{sub}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
