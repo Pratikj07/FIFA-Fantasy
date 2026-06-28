@@ -3,6 +3,16 @@ import { MapPin } from 'lucide-react';
 import { TEAMS } from '../../data/teams.js';
 import Flag from '../ui/Flag.jsx';
 
+const STAGE_LABEL = {
+  GROUP: null, // handled separately via group/matchday
+  R32: 'Round of 32',
+  R16: 'Round of 16',
+  QF: 'Quarter-Final',
+  SF: 'Semi-Final',
+  '3RD': '3rd Place Playoff',
+  FINAL: 'Final',
+};
+
 const StatusBadge = ({ status, minute }) => {
   if (status === 'LIVE') return (
     <span className="flex items-center gap-1.5 bg-red-500/15 text-red-400 border border-red-500/30 rounded-full px-2.5 py-0.5 text-xs font-bold">
@@ -15,7 +25,19 @@ const StatusBadge = ({ status, minute }) => {
   return <span className="bg-white/5 text-white/40 border border-white/8 rounded-full px-2.5 py-0.5 text-xs">UPCOMING</span>;
 };
 
-function TeamDisplay({ team, compact }) {
+/** Renders a confirmed team (flag + name) or a TBD placeholder label */
+function TeamDisplay({ team, label, compact }) {
+  if (!team) {
+    return (
+      <div className="flex flex-col items-center gap-1.5 flex-1">
+        <div className={`rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-white/20 text-xs font-bold
+          ${compact ? 'w-5 h-[15px]' : 'w-10 h-[30px]'}`}>
+          ?
+        </div>
+        <span className="text-white/35 font-semibold text-[11px] text-center leading-tight">{label || 'TBD'}</span>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-1.5 flex-1">
       <Flag iso2={team.iso2} size={compact ? 'sm' : 'md'} className="rounded"/>
@@ -27,12 +49,18 @@ function TeamDisplay({ team, compact }) {
 }
 
 export default function MatchCard({ match, compact = false, onClick, showPrediction }) {
-  const ht = TEAMS[match.home];
-  const at = TEAMS[match.away];
-  if (!ht || !at) return null;
+  const ht = match.home ? TEAMS[match.home] : null;
+  const at = match.away ? TEAMS[match.away] : null;
+
+  const isKnockout = match.stage && match.stage !== 'GROUP';
   const status = match.status ?? 'UPCOMING';
   const isLive = status === 'LIVE';
   const hasSc  = status === 'FT' || isLive;
+
+  // Meta chip: group/matchday for group stage, stage round name for knockout
+  const metaLabel = isKnockout
+    ? (STAGE_LABEL[match.stage] || match.stage)
+    : `MD${match.matchday} · Grp ${match.group}`;
 
   return (
     <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.98 }} onClick={onClick}
@@ -44,8 +72,9 @@ export default function MatchCard({ match, compact = false, onClick, showPredict
       {/* Match meta */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] bg-wc-gold/10 text-wc-gold border border-wc-gold/20 rounded px-1.5 py-0.5 font-semibold">
-            MD{match.matchday} · Grp {match.group}
+          <span className={`text-[10px] rounded px-1.5 py-0.5 font-semibold border
+            ${isKnockout ? 'bg-wc-blue/10 text-wc-blue border-wc-blue/20' : 'bg-wc-gold/10 text-wc-gold border-wc-gold/20'}`}>
+            {metaLabel}
           </span>
         </div>
         <StatusBadge status={status} minute={match.minute}/>
@@ -53,7 +82,7 @@ export default function MatchCard({ match, compact = false, onClick, showPredict
 
       {/* Teams + Score */}
       <div className="flex items-center justify-between gap-2">
-        <TeamDisplay team={ht} compact={compact}/>
+        <TeamDisplay team={ht} label={match.homeLabel} compact={compact}/>
 
         <div className="flex items-center gap-2 px-1 shrink-0">
           {hasSc ? (
@@ -70,11 +99,11 @@ export default function MatchCard({ match, compact = false, onClick, showPredict
           )}
         </div>
 
-        <TeamDisplay team={at} compact={compact}/>
+        <TeamDisplay team={at} label={match.awayLabel} compact={compact}/>
       </div>
 
       {/* User prediction */}
-      {showPrediction && (
+      {showPrediction && ht && at && (
         <div className="mt-3 bg-wc-gold/8 border border-wc-gold/20 rounded-lg px-3 py-1.5 text-center">
           <div className="flex items-center justify-center gap-2 text-xs font-semibold text-wc-gold">
             <Flag iso2={ht.iso2} size="sm"/>{showPrediction.h} – {showPrediction.a}<Flag iso2={at.iso2} size="sm"/>
