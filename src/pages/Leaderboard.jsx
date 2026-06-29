@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart2, Users } from 'lucide-react';
+import { BarChart2, Users, Lock } from 'lucide-react';
 import useStore from '../store/useStore.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -8,6 +8,7 @@ import { calcPoints, pointsBreakdown } from '../utils/scoring.js';
 import { ALL_MATCHES } from '../data/matches.js';
 import { TEAMS } from '../data/teams.js';
 import LeaderboardTable from '../components/leaderboard/LeaderboardTable.jsx';
+import AuthModal from '../components/auth/AuthModal.jsx';
 
 function computePoints(preds, completedResults) {
   let pts = 0;
@@ -27,6 +28,7 @@ export default function Leaderboard() {
   const [board,     setBoard]     = useState([]);
   const [fetching,  setFetching]  = useState(false);
   const [showBreak, setShowBreak] = useState(false);
+  const [showAuth,  setShowAuth]  = useState(false);
   const breakdown = useMemo(() => pointsBreakdown(predictions, completedResults), [predictions, completedResults]);
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export default function Leaderboard() {
         </button>
       </div>
 
-      {myEntry && (
+      {user && myEntry && (
         <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} className="glass-card-gold p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -115,6 +117,21 @@ export default function Leaderboard() {
             <div className="text-center"><p className="font-display text-2xl text-wc-live">{myEntry.acc}%</p><p className="text-white/30 text-[10px]">Accuracy</p></div>
             <div className="text-center"><p className="font-display text-2xl text-white">{Math.max(0, board.length - myEntry.rank)}</p><p className="text-white/30 text-[10px]">Ahead of</p></div>
           </div>
+        </motion.div>
+      )}
+
+      {!user && (
+        <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}}
+          className="glass-card-gold p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Lock size={18} className="text-wc-gold shrink-0"/>
+            <div>
+              <p className="text-white font-bold text-sm">Names &amp; points are blurred for guests</p>
+              <p className="text-white/40 text-xs mt-0.5">Sign in to see the full board and your own rank</p>
+            </div>
+          </div>
+          <button onClick={()=>setShowAuth(true)}
+            className="btn-gold shrink-0 px-4 py-2 text-xs font-semibold whitespace-nowrap">Sign In</button>
         </motion.div>
       )}
 
@@ -143,7 +160,10 @@ export default function Leaderboard() {
         </div>
       )}
 
-      <LeaderboardTable rows={board}/>
+      <LeaderboardTable rows={board} blurred={!user}/>
+
+      <AuthModal open={showAuth} onClose={()=>setShowAuth(false)}
+        message="Sign in to see the full leaderboard and track your own rank"/>
     </div>
   );
 }
