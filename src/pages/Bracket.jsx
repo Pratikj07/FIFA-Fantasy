@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GitBranch, RotateCcw, ChevronRight, Lock, Save, CheckCircle } from 'lucide-react';
 import useStore from '../store/useStore.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { GROUP_NAMES } from '../data/teams.js';
 import { ROUND_LABELS } from '../data/bracket.js';
 import GroupPicks from '../components/bracket/GroupPicks.jsx';
 import RoundPicker from '../components/bracket/RoundPicker.jsx';
 import BracketVisual from '../components/bracket/BracketVisual.jsx';
+import AuthModal from '../components/auth/AuthModal.jsx';
 
 export const BRACKET_DEADLINE = new Date('2026-06-17T23:59:59-04:00');
 export const bracketLocked = () => new Date() > BRACKET_DEADLINE;
@@ -50,10 +52,12 @@ function Progress({ bracketPicks }) {
 
 export default function Bracket() {
   const { bracketPicks, thirdPicks, clearBracket, saveBracket } = useStore();
+  const { user } = useAuth();
   const [tab,     setTab]     = useState('groups');
   const [visual,  setVisual]  = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [saving,  setSaving]  = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   // saved stays true until user makes changes after saving
   const [saved,   setSaved]   = useState(false);
   const savedSnapshotRef = useRef(null);
@@ -69,13 +73,17 @@ export default function Bracket() {
     }
   }, [bracketPicks, thirdPicks]);
 
-  const handleSave = async () => {
+  const doSave = async () => {
     setSaving(true);
     await saveBracket();
     setSaving(false);
     setSaved(true);
-    // Snapshot what was just saved — future changes will revert button
     savedSnapshotRef.current = JSON.stringify({ bracketPicks, thirdPicks });
+  };
+
+  const handleSave = async () => {
+    if (!user) { setShowAuth(true); return; }
+    await doSave();
   };
 
   return (
@@ -95,6 +103,7 @@ export default function Bracket() {
               }`}>
               {saving ? <><Save size={12} className="animate-pulse"/> Saving…</>
                : saved ? <><CheckCircle size={12}/> Saved</>
+               : !user ? <><Lock size={12}/> Sign In to Save</>
                : <><Save size={12}/> Save Bracket</>}
             </button>
           )}
@@ -188,6 +197,10 @@ export default function Bracket() {
           ))}
         </div>
       </div>
+
+      <AuthModal open={showAuth} onClose={()=>setShowAuth(false)}
+        message="Sign in to save your bracket picks — it's free and takes seconds"
+        onAuthenticated={doSave}/>
     </div>
   );
 }
