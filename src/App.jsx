@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { LiveScoresProvider } from './context/LiveScoresContext.jsx';
 import useStore from './store/useStore.js';
@@ -58,6 +59,7 @@ function Inner() {
             </Routes>
           </div>
         </main>
+        <Analytics />
       </div>
     </LiveScoresProvider>
   );
