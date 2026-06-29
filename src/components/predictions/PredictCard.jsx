@@ -4,8 +4,10 @@ import { Plus, Minus, Lock, Sparkles, CheckCircle, Pencil } from 'lucide-react';
 import { TEAMS } from '../../data/teams.js';
 import { calcPoints } from '../../utils/scoring.js';
 import { useLiveScoresContext } from '../../context/LiveScoresContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import useStore from '../../store/useStore.js';
 import Flag from '../ui/Flag.jsx';
+import AuthModal from '../auth/AuthModal.jsx';
 
 const STAGE_LABEL = { R32:'Round of 32', R16:'Round of 16', QF:'Quarter-Final', SF:'Semi-Final', '3RD':'3rd Place Playoff', FINAL:'Final' };
 
@@ -26,6 +28,7 @@ const Spinner = ({ value, onPlus, onMinus, disabled }) => (
 export default function PredictCard({ match, onAIClick }) {
   const { predictions, setPrediction } = useStore();
   const { resolveMatch } = useLiveScoresContext();
+  const { user } = useAuth();
   const resolved = resolveMatch(match);
   const saved = predictions[match.id];
   const matchStarted = resolved.status === 'LIVE' || resolved.status === 'FT';
@@ -33,6 +36,7 @@ export default function PredictCard({ match, onAIClick }) {
   const [ph, setPh] = useState(saved?.h ?? 1);
   const [pa, setPa] = useState(saved?.a ?? 1);
   const [flash, setFlash] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     if (saved && !matchStarted) { setPh(saved.h); setPa(saved.a); }
@@ -50,6 +54,7 @@ export default function PredictCard({ match, onAIClick }) {
 
   const submit = () => {
     if (matchStarted) return;
+    if (!user) { setShowAuth(true); return; }
     setPrediction(match.id, ph, pa);
     setFlash(true); setTimeout(() => setFlash(false), 800);
   };
@@ -151,7 +156,7 @@ export default function PredictCard({ match, onAIClick }) {
           <button onClick={submit}
             className={`flex-1 text-sm py-2.5 font-semibold rounded-xl transition-all
               ${hasChanged||!saved ? 'btn-gold' : 'bg-white/6 text-white/50 border border-white/10 hover:bg-white/10 hover:text-white/70'}`}>
-            {isUpdate ? (hasChanged ? '↺ Update Prediction' : '✓ Saved') : 'Lock In Prediction'}
+            {!user ? '🔒 Sign In to Predict' : isUpdate ? (hasChanged ? '↺ Update Prediction' : '✓ Saved') : 'Lock In Prediction'}
           </button>
         )}
         <button onClick={() => onAIClick && onAIClick(match)}
@@ -162,6 +167,10 @@ export default function PredictCard({ match, onAIClick }) {
       {saved && !matchStarted && !hasChanged && (
         <p className="text-center text-white/20 text-[10px] mt-2">✏️ Adjust above to update before kickoff</p>
       )}
+
+      <AuthModal open={showAuth} onClose={()=>setShowAuth(false)}
+        message="Sign in to save your prediction — it's free and takes seconds"
+        onAuthenticated={() => setPrediction(match.id, ph, pa)}/>
     </motion.div>
   );
 }
