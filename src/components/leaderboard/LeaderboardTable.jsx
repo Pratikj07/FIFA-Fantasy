@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { Medal } from 'lucide-react';
 
 const RANK_COLORS = {
   1: { bg: 'bg-yellow-400/10', border: 'border-yellow-400/40', text: 'text-yellow-400',  emoji: '🥇' },
@@ -7,7 +6,13 @@ const RANK_COLORS = {
   3: { bg: 'bg-amber-600/10',  border: 'border-amber-600/30',  text: 'text-amber-600',   emoji: '🥉' },
 };
 
-const PodiumCard = ({ player }) => {
+// Wraps any personal-data span and blurs it for logged-out visitors,
+// while keeping the layout exactly the same shape (no jarring reflow).
+const Blurrable = ({ blurred, children, className = '' }) => (
+  <span className={`${className} ${blurred ? 'blur-[5px] select-none' : ''}`}>{children}</span>
+);
+
+const PodiumCard = ({ player, blurred }) => {
   const c = RANK_COLORS[player.rank] ?? {};
   return (
     <motion.div
@@ -16,11 +21,11 @@ const PodiumCard = ({ player }) => {
       transition={{ delay: player.rank * 0.08 }}
       className={`flex-1 rounded-2xl border p-4 text-center ${c.bg} ${c.border}`}
     >
-      <div className="text-3xl mb-2">{player.avatar}</div>
+      <Blurrable blurred={blurred} className="block text-3xl mb-2">{player.avatar}</Blurrable>
       <div className="text-xl mb-0.5">{c.emoji}</div>
-      <p className={`font-bold text-sm truncate ${c.text}`}>{player.username}</p>
-      <p className="text-white/30 text-[10px]">{player.country}</p>
-      <p className={`font-display text-3xl mt-2 ${c.text}`}>{player.pts}</p>
+      <Blurrable blurred={blurred} className={`block font-bold text-sm truncate ${c.text}`}>{player.username}</Blurrable>
+      <Blurrable blurred={blurred} className="block text-white/30 text-[10px]">{player.country}</Blurrable>
+      <Blurrable blurred={blurred} className={`block font-display text-3xl mt-2 ${c.text}`}>{player.pts}</Blurrable>
       <p className="text-white/40 text-[10px]">pts</p>
       {player.isMe && (
         <span className="inline-block mt-1 text-[9px] bg-wc-gold/20 text-wc-gold px-1.5 py-0.5 rounded-full border border-wc-gold/30">
@@ -31,7 +36,7 @@ const PodiumCard = ({ player }) => {
   );
 };
 
-export default function LeaderboardTable({ rows }) {
+export default function LeaderboardTable({ rows, blurred = false }) {
   const top3 = rows.slice(0, 3);
   const rest  = rows.slice(3);
 
@@ -39,7 +44,7 @@ export default function LeaderboardTable({ rows }) {
     <div className="space-y-4">
       {/* Podium */}
       <div className="flex gap-3">
-        {top3.map(p => <PodiumCard key={p.id} player={p} />)}
+        {top3.map(p => <PodiumCard key={p.id} player={p} blurred={blurred}/>)}
       </div>
 
       {/* Rest of table */}
@@ -70,29 +75,31 @@ export default function LeaderboardTable({ rows }) {
                 <td className="p-3 pl-4 text-white/40 font-mono text-xs">{player.rank}</td>
                 <td className="p-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xl">{player.avatar}</span>
+                    <Blurrable blurred={blurred} className="text-xl">{player.avatar}</Blurrable>
                     <div>
                       <p className={`font-semibold text-sm ${player.isMe ? 'text-wc-gold' : 'text-white'}`}>
-                        {player.username}
+                        <Blurrable blurred={blurred}>{player.username}</Blurrable>
                         {player.isMe && <span className="ml-2 text-[10px] bg-wc-gold/20 text-wc-gold px-1.5 py-0.5 rounded-full">YOU</span>}
                       </p>
-                      <p className="text-white/30 text-[10px]">{player.country}</p>
+                      <Blurrable blurred={blurred} className="block text-white/30 text-[10px]">{player.country}</Blurrable>
                     </div>
                   </div>
                 </td>
-                <td className="p-3 text-center text-white/50 text-xs">{player.predCount}</td>
+                <td className="p-3 text-center text-white/50 text-xs">
+                  <Blurrable blurred={blurred}>{player.predCount}</Blurrable>
+                </td>
                 <td className="p-3 text-center text-xs">
-                  <span className={`font-medium ${
+                  <Blurrable blurred={blurred} className={`font-medium ${
                     player.acc >= 70 ? 'text-wc-live' :
                     player.acc >= 50 ? 'text-wc-gold' : 'text-white/40'
                   }`}>
                     {player.acc}%
-                  </span>
+                  </Blurrable>
                 </td>
                 <td className="p-3 pr-4 text-center">
-                  <span className={`font-bold font-display text-xl ${player.isMe ? 'text-wc-gold' : 'text-white'}`}>
+                  <Blurrable blurred={blurred} className={`font-bold font-display text-xl ${player.isMe ? 'text-wc-gold' : 'text-white'}`}>
                     {player.pts}
-                  </span>
+                  </Blurrable>
                 </td>
               </motion.tr>
             ))}
