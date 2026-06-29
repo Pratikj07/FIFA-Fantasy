@@ -105,45 +105,55 @@ function LoginForm() {
   );
 }
 
-export default function AuthScreen() {
+/**
+ * AuthCard — the actual sign-in/register UI, with no outer page wrapper.
+ * Reusable both as a full-page screen and inline inside a gated page.
+ */
+export function AuthCard({ compact = false, title = 'WC26', subtitle = 'PREDICTOR' }) {
   const [tab, setTab] = useState('login');
 
   return (
+    <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
+      className={`w-full max-w-md glass-card-gold ${compact ? 'p-6' : 'p-8'}`}>
+      {/* Logo */}
+      <div className="text-center mb-7">
+        <div className="text-5xl mb-3">🏆</div>
+        <h1 className="font-display text-5xl text-wc-gold tracking-widest">{title}</h1>
+        <p className="font-display text-xl text-white tracking-widest">{subtitle}</p>
+        <p className="text-white/40 text-sm mt-1.5">FIFA World Cup 2026 · Mexico · Canada · USA</p>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex rounded-xl bg-white/5 p-1 mb-6">
+        {[['login','Sign In'],['register','Register']].map(([t, l]) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab===t?'bg-wc-gold text-wc-bg':'text-white/50 hover:text-white'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div key={tab} initial={{ opacity: 0, x: tab==='login'?-20:20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+          {tab === 'login' ? <LoginForm /> : <RegisterForm />}
+        </motion.div>
+      </AnimatePresence>
+
+      <p className="text-center text-white/20 text-xs mt-5">
+        {tab==='login' ? "Don't have an account? " : "Already have an account? "}
+        <button onClick={() => setTab(tab==='login'?'register':'login')} className="text-wc-gold underline">
+          {tab==='login' ? 'Register free' : 'Sign in'}
+        </button>
+      </p>
+    </motion.div>
+  );
+}
+
+export default function AuthScreen() {
+  return (
     <div className="min-h-screen bg-wc-bg flex flex-col items-center justify-center px-4"
       style={{ backgroundImage: 'radial-gradient(ellipse at center, rgba(245,197,24,0.07) 0%, transparent 65%)' }}>
-      <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md glass-card-gold p-8">
-        {/* Logo */}
-        <div className="text-center mb-7">
-          <div className="text-5xl mb-3">🏆</div>
-          <h1 className="font-display text-5xl text-wc-gold tracking-widest">WC26</h1>
-          <p className="font-display text-xl text-white tracking-widest">PREDICTOR</p>
-          <p className="text-white/40 text-sm mt-1.5">FIFA World Cup 2026 · Mexico · Canada · USA</p>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex rounded-xl bg-white/5 p-1 mb-6">
-          {[['login','Sign In'],['register','Register']].map(([t, l]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab===t?'bg-wc-gold text-wc-bg':'text-white/50 hover:text-white'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, x: tab==='login'?-20:20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-            {tab === 'login' ? <LoginForm /> : <RegisterForm />}
-          </motion.div>
-        </AnimatePresence>
-
-        <p className="text-center text-white/20 text-xs mt-5">
-          {tab==='login' ? "Don't have an account? " : "Already have an account? "}
-          <button onClick={() => setTab(tab==='login'?'register':'login')} className="text-wc-gold underline">
-            {tab==='login' ? 'Register free' : 'Sign in'}
-          </button>
-        </p>
-      </motion.div>
+      <AuthCard />
     </div>
   );
 }
