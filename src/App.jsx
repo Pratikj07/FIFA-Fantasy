@@ -9,7 +9,6 @@ import LiveScores from './pages/LiveScores.jsx';
 import Predictions from './pages/Predictions.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
 import Bracket from './pages/Bracket.jsx';
-import AuthScreen from './components/auth/AuthScreen.jsx';
 
 function Inner() {
   const { user, loading } = useAuth();
@@ -37,8 +36,12 @@ function Inner() {
     </div>
   );
 
-  if (!user) return <AuthScreen />;
-
+  // The whole app is browsable without an account. Predictions and Bracket
+  // render fully for guests too — every page/spinner/picker is interactive.
+  // Login is only required at the moment of an actual save action (see the
+  // AuthModal triggered inside PredictCard's submit() and Bracket's
+  // handleSave()). Leaderboard renders for everyone but blurs personal
+  // names/points until the visitor signs in (see LeaderboardTable).
   return (
     <LiveScoresProvider>
       <div className="min-h-screen bg-wc-bg font-body text-white">
